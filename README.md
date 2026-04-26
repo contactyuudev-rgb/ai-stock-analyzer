@@ -12,7 +12,7 @@ A stock analysis tool built with Streamlit that combines technical indicators an
 
 ## Demo
 
-[▶ Live App](https://your-app-url.streamlit.app)
+[▶ Live App](https://appapppy-vqqtnjnz4jvvqmdbscqup5.streamlit.app/)
 
 ## Getting Started
 
