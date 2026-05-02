@@ -13,8 +13,9 @@ UI = {
     'ja': {
         'title':      '📈 株式分析ツール',
         'caption':    'テクニカル指標と最新ニュースをまとめて確認',
-        'us_label':   '🇺🇸 米国株',
-        'jp_label':   '🇯🇵 日本株',
+        'us_label':     '🇺🇸 米国株 — セクター',
+        'jp_label':     '🇯🇵 日本株 — セクター',
+        'select_stock': '銘柄を選択',
         'placeholder':'ティッカーを入力（例: AAPL, NVDA, 7203.T）',
         'btn':        '分析する',
         'spinner':    'のデータを取得中...',
@@ -40,8 +41,9 @@ UI = {
     'en': {
         'title':      '📈 Stock Analysis Tool',
         'caption':    'Technical indicators and latest news — all in one view.',
-        'us_label':   '🇺🇸 US Stocks',
-        'jp_label':   '🇯🇵 Japan Stocks',
+        'us_label':     '🇺🇸 US Stocks — Sector',
+        'jp_label':     '🇯🇵 Japan Stocks — Sector',
+        'select_stock': 'Select Stock',
         'placeholder':'Enter ticker (e.g. AAPL, NVDA, 7203.T)',
         'btn':        'Analyze',
         'spinner':    'Fetching data for',
@@ -104,8 +106,30 @@ INDICATOR_HELP = {
     },
 }
 
-QUICK_US = [('AAPL','Apple'),('NVDA','NVIDIA'),('TSLA','Tesla'),('MSFT','Microsoft'),('AMZN','Amazon'),('META','Meta')]
-QUICK_JP = [('7203.T','トヨタ'),('6758.T','ソニー'),('9984.T','SoftBank'),('7974.T','任天堂'),('6861.T','キーエンス'),('8306.T','三菱UFJ')]
+STOCKS_US = {
+    'Tech':                [('AAPL','Apple'),('MSFT','Microsoft'),('GOOGL','Alphabet'),('META','Meta'),('ORCL','Oracle'),('CRM','Salesforce'),('UBER','Uber')],
+    'Semiconductor':       [('NVDA','NVIDIA'),('AMD','AMD'),('INTC','Intel'),('AVGO','Broadcom'),('QCOM','Qualcomm'),('MU','Micron'),('TSM','TSMC')],
+    'EV / Auto':           [('TSLA','Tesla'),('F','Ford'),('GM','General Motors'),('RIVN','Rivian')],
+    'E-Commerce':          [('AMZN','Amazon'),('SHOP','Shopify'),('EBAY','eBay')],
+    'Finance':             [('JPM','JPMorgan'),('BAC','BofA'),('GS','Goldman Sachs'),('V','Visa'),('MA','Mastercard'),('PYPL','PayPal')],
+    'Healthcare':          [('JNJ','J&J'),('PFE','Pfizer'),('MRNA','Moderna'),('ABBV','AbbVie'),('UNH','UnitedHealth')],
+    'Media / Ent.':        [('NFLX','Netflix'),('DIS','Disney'),('SPOT','Spotify'),('RBLX','Roblox')],
+    'Crypto':              [('COIN','Coinbase'),('MSTR','MicroStrategy')],
+    'ETF':                 [('SPY','S&P 500'),('QQQ','Nasdaq 100'),('VTI','Total Mkt'),('GLD','Gold')],
+}
+
+STOCKS_JP = {
+    'テクノロジー':         [('6758.T','ソニー'),('9984.T','SoftBank'),('4307.T','野村総研'),('4704.T','トレンドマイクロ')],
+    '半導体・電子部品':     [('8035.T','東京エレクトロン'),('6857.T','アドバンテスト'),('6861.T','キーエンス'),('6981.T','村田製作所'),('6594.T','ニデック'),('6702.T','富士通')],
+    '自動車':              [('7203.T','トヨタ'),('7267.T','ホンダ'),('7201.T','日産'),('6902.T','デンソー'),('7269.T','スズキ'),('7272.T','ヤマハ発動機')],
+    '金融':                [('8306.T','三菱UFJ'),('8316.T','三井住友'),('8411.T','みずほ'),('8604.T','野村HD'),('8766.T','東京海上HD')],
+    '通信':                [('9432.T','NTT'),('9433.T','KDDI'),('9434.T','SoftBank通信')],
+    'ゲーム・エンタメ':     [('7974.T','任天堂'),('9766.T','コナミ'),('7832.T','バンナム'),('9684.T','スクエニ')],
+    '流通・小売':           [('9983.T','ファーストリテイリング'),('8267.T','イオン'),('3382.T','セブン&アイ'),('2651.T','ローソン')],
+    '製薬':                [('4519.T','中外製薬'),('4568.T','第一三共'),('4523.T','エーザイ'),('4151.T','協和キリン')],
+    '不動産':              [('8801.T','三井不動産'),('8802.T','三菱地所')],
+    'インフラ・エネルギー': [('9501.T','東京電力HD'),('5020.T','ENEOS'),('9531.T','東京ガス')],
+}
 
 TYPE_ICON = {'bullish': '🟢', 'bearish': '🔴', 'neutral': '🟡'}
 
@@ -277,23 +301,27 @@ with lang_col:
 t = UI[st.session_state.lang]
 lang = st.session_state.lang
 
-# クイック選択（Combobox）
+# セクター → 銘柄の2段階選択
 ver = st.session_state.sel_ver
 qc1, qc2 = st.columns(2)
 with qc1:
-    us_options = [''] + [f"{label}  ({sym})" for sym, label in QUICK_US]
-    us_sel = st.selectbox(t['us_label'], us_options, index=0, key=f'us_{ver}')
-    if us_sel:
-        st.session_state.analyze_ticker = us_sel.split('(')[-1].rstrip(')').strip()
-        st.session_state.sel_ver += 1
-        st.rerun()
+    us_sector = st.selectbox(t['us_label'], [''] + list(STOCKS_US.keys()), key='us_sector')
+    if us_sector:
+        us_opts = [''] + [f"{lbl}  ({sym})" for sym, lbl in STOCKS_US[us_sector]]
+        us_stk = st.selectbox(t['select_stock'], us_opts, key=f'us_stk_{us_sector}_{ver}', label_visibility='collapsed')
+        if us_stk:
+            st.session_state.analyze_ticker = us_stk.split('(')[-1].rstrip(')').strip()
+            st.session_state.sel_ver += 1
+            st.rerun()
 with qc2:
-    jp_options = [''] + [f"{label}  ({sym})" for sym, label in QUICK_JP]
-    jp_sel = st.selectbox(t['jp_label'], jp_options, index=0, key=f'jp_{ver}')
-    if jp_sel:
-        st.session_state.analyze_ticker = jp_sel.split('(')[-1].rstrip(')').strip()
-        st.session_state.sel_ver += 1
-        st.rerun()
+    jp_sector = st.selectbox(t['jp_label'], [''] + list(STOCKS_JP.keys()), key='jp_sector')
+    if jp_sector:
+        jp_opts = [''] + [f"{lbl}  ({sym})" for sym, lbl in STOCKS_JP[jp_sector]]
+        jp_stk = st.selectbox(t['select_stock'], jp_opts, key=f'jp_stk_{jp_sector}_{ver}', label_visibility='collapsed')
+        if jp_stk:
+            st.session_state.analyze_ticker = jp_stk.split('(')[-1].rstrip(')').strip()
+            st.session_state.sel_ver += 1
+            st.rerun()
 
 # 入力フォーム
 col1, col2 = st.columns([4, 1])
